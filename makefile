@@ -309,7 +309,7 @@ debug:
 
 
 debug-test:
-	gdb build/tests.exe
+	gdb $(TEST_EXECUTABLE)
 
 
 flash: | application platform-flash
