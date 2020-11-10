@@ -108,11 +108,13 @@ public:
 
     void ConfigureFrequency(units::frequency::hertz_t frequency) override
     {
-        // To configure frequency, we have to set the ARR register
-        auto & system  = SystemController::GetPlatformController();
-        auto frequency = system.GetClockRate(timer_.id);
+      auto & system  = SystemController::GetPlatformController();
+      const auto kPeripheralFrequency = system.GetClockRate(timer_.id);
+      static constexpr uint16_t kMax16Bits = ~0;
 
-        // This means that whenever TIM->CNT hits this value, it will start over from 0
+      // To configure frequency, we have to set the ARR register
+      const float ratio = static_cast<float>(frequency / kPeripheralFrequency);
+      timer_.registers->ARR = ratio * kMax16Bits;
     }
 
     void SetDutyCycle(float duty_cycle) override
@@ -156,10 +158,10 @@ public:
 
       EnableTimer();
 
+      // Set pin to alternative function to support PWM
       timer_.pin.ConfigureFunction(1);
 
-      TIM2->ARR = 65535;                      // Set Auto reload value
-      TIM2->PSC = 21;                         // Set Prescalar value
+      timer_.registers->PSC = 0;   // Set Prescalar value
 
         // Using output compare 2
         //TIM2->CCMR1  = 0x00007800;
