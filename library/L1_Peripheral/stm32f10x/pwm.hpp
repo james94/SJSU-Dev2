@@ -25,6 +25,9 @@ public:
 
       // Holds the address to the STM PWM peripheral
       TIM_TypeDef * registers;
+
+      // Peripheral ID for each timer
+      sjsu::SystemController::ResourceID id;
     };
 
     struct Timer {
@@ -42,55 +45,57 @@ public:
       inline static const Timer_t kTimer1 = {
         .pin = pin_a_8,
         .timer = 1,
-        .registers = TIM1
+        .registers = TIM1,
+        .id = SystemController::Peripherals::kTimer1
       };
 
       inline static const Timer_t kTimer2 = {
         .pin = pin_a_0,
         .timer = 2,
-        .registers = TIM2
+        .registers = TIM2,
+        .id = SystemController::Peripherals::kTimer2
       };
 
       inline static const Timer_t kTimer3 = {
         .pin = pin_a_6,
         .timer = 3,
-        .registers = TIM3
+        .registers = TIM3,
+        .id = SystemController::Peripherals::kTimer3
       };
 
       inline static const Timer_t kTimer4 = {
         .pin = pin_b_6,
         .timer = 4,
-        .registers = TIM4
+        .registers = TIM4,
+        .id = SystemController::Peripherals::kTimer4
       };
 
       inline static const Timer_t kTimer9 = {
         .pin = pin_a_2,
         .timer = 9,
-        .registers = TIM9
+        .registers = TIM9,
+        .id = SystemController::Peripherals::kTimer9
       };
 
       inline static const Timer_t kTimer10 = {
         .pin = pin_b_8,
         .timer = 10,
-        .registers = TIM10
+        .registers = TIM10,
+        .id = SystemController::Peripherals::kTimer10
       };
 
       inline static const Timer_t kTimer11 = {
         .pin = pin_b_9,
         .timer = 11,
-        .registers = TIM11
-      };
-
-      inline static const Timer_t kTimer13 = {
-        .pin = pin_a_6,
-        .timer = 13,
-        .registers = TIM12
+        .registers = TIM11,
+        .id = SystemController::Peripherals::kTimer11
       };
 
       inline static const Timer_t kTimer14 = {
         .pin = pin_a_7,
         .timer = 14,
-        .registers = TIM14
+        .registers = TIM14,
+        .id = SystemController::Peripherals::kTimer14
       };
     };
 
@@ -105,7 +110,7 @@ public:
     {
         // To configure frequency, we have to set the ARR register
         auto & system  = SystemController::GetPlatformController();
-        //auto frequency = system.GetClockRate(Peripherals::kSystemTimer.device_id);
+        auto frequency = system.GetClockRate(timer_.id);
 
         // This means that whenever TIM->CNT hits this value, it will start over from 0
     }
@@ -115,29 +120,46 @@ public:
       // Clamp the duty cycle to make sure it's in the right range
       const float kClampedDutyCycle = std::clamp(duty_cycle, 0.0f, 1.0f);
 
-      // We set duty cycle by adjusting TIMx->CCRx
+      // We set duty cycle by adjusting TIMx->CCR1
       timer_.registers->CCR1 = static_cast<float>(kClampedDutyCycle * timer_.registers->ARR);
     }
 
     float GetDutyCycle() override
     {
-      return static_cast<float>(timer_.registers->ARR / timer_.registers->CCR1);
+      return static_cast<float>(timer_.registers->CCR1 / timer_.registers->ARR);
     }
 
     void ModuleEnable(bool enable = true) override
     {
     }
 
+    struct PortEnable {
+      static constexpr auto kPortAClockEnable = bit::MaskFromRange(2);
+      static constexpr auto kPortBClockEnable = bit::MaskFromRange(3);
+    };
+
+    struct TimerClockEnable {
+      static constexpr auto kTimer1ClockEnable = bit::MaskFromRange(11);
+      static constexpr auto kTimer2ClockEnable = bit::MaskFromRange(0);
+      static constexpr auto kTimer3ClockEnable = bit::MaskFromRange(1);
+      static constexpr auto kTimer4ClockEnable = bit::MaskFromRange(2);
+      static constexpr auto kTimer9ClockEnable = bit::MaskFromRange(19);
+      static constexpr auto kTimer10ClockEnable = bit::MaskFromRange(20);
+      static constexpr auto kTimer11ClockEnable = bit::MaskFromRange(21);
+      static constexpr auto kTimer14ClockEnable = bit::MaskFromRange(8);
+    };
+
     void ModuleInitialize()
-    {
-        RCC->APB2ENR |= (1 << 2);           // enable port a clock
-        RCC->APB1ENR |= (1 << 0);           // enable clock for timer 2
+    {      
+      const auto port_enable = timer_.pin.GetPort() == 'A' ? PortEnable::kPortAClockEnable : PortEnable::kPortBClockEnable;
+      RCC->APB2ENR = bit::Insert(RCC->APB2ENR, 1, port_enable);
 
-        auto output = Pin('A', 2);
-        output.ConfigureFunction(1);
+      EnableTimer();
 
-        TIM2->ARR = 65535;                      // Set Auto reload value
-        TIM2->PSC = 21;                         // Set Prescalar value
+      timer_.pin.ConfigureFunction(1);
+
+      TIM2->ARR = 65535;                      // Set Auto reload value
+      TIM2->PSC = 21;                         // Set Prescalar value
 
         // Using output compare 2
         //TIM2->CCMR1  = 0x00007800;
@@ -204,6 +226,39 @@ public:
             TIM2->CCR3  = 32768;
         }
     }
+ private:
+  void EnableTimer()
+  {
+    switch (timer_.timer)
+    {
+    case 1:
+      RCC->APB2ENR = bit::Insert(RCC->APB2ENR, 1, TimerClockEnable::kTimer1ClockEnable);
+      break;
+    case 2:
+      RCC->APB1ENR = bit::Insert(RCC->APB1ENR, 1, TimerClockEnable::kTimer2ClockEnable);
+      break;
+    case 3:
+      RCC->APB1ENR = bit::Insert(RCC->APB1ENR, 1, TimerClockEnable::kTimer3ClockEnable);
+      break;
+    case 4:
+      RCC->APB1ENR = bit::Insert(RCC->APB1ENR, 1, TimerClockEnable::kTimer4ClockEnable);
+      break;
+    case 9:
+      RCC->APB2ENR = bit::Insert(RCC->APB2ENR, 1, TimerClockEnable::kTimer9ClockEnable);
+      break;
+    case 10:
+      RCC->APB2ENR = bit::Insert(RCC->APB2ENR, 1, TimerClockEnable::kTimer10ClockEnable);
+      break;
+    case 11:
+      RCC->APB2ENR = bit::Insert(RCC->APB2ENR, 1, TimerClockEnable::kTimer11ClockEnable);
+      break;
+    case 14:
+      RCC->APB1ENR = bit::Insert(RCC->APB1ENR, 1, TimerClockEnable::kTimer14ClockEnable);    
+    default:
+      break;
+    }
+  }
+
   const Timer_t & timer_;
 };
 }  // namespace sjsu::stm32f10x
