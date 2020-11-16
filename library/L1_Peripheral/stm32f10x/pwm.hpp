@@ -149,8 +149,11 @@ public:
     // Clamp the duty cycle to make sure it's in the right range
     const float kClampedDutyCycle = std::clamp(duty_cycle, 0.0f, 1.0f);
 
-    // We set duty cycle by adjusting TIMx->CCR1
-    timer_.registers->CCR1 = static_cast<uint16_t>(duty_cycle * timer_.registers->ARR);
+    // The output signal is active for as long as the value in TIMx->CNT is
+    // less than the value in TIMx->CCR1 and inactive for the opposite. So
+    // setting TIMx->CCR to 80% of TIMx->ARR will result in the signal being
+    // active only 20% of the time. This is why we do 1 - duty_cycle.
+    timer_.registers->CCR1 = static_cast<uint16_t>(1 - kClampedDutyCycle * timer_.registers->ARR);
   }
 
   float GetDutyCycle() override
@@ -171,8 +174,6 @@ public:
 
     // Set pin to alternative function to support PWM
     timer_.pin.ConfigureFunction(1);
-
-    timer_.registers->PSC = 21;   // Set Prescalar value
 
     // Here we seet the PWM mode and the preload enable
     timer_.registers->CCMR1 = bit::Insert(timer_.registers->CCMR1, static_cast<uint16_t>(7), kOutputCompareMode);

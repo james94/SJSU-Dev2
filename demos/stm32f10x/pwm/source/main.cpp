@@ -3,10 +3,10 @@
 
 int main()
 {
-  sjsu::stm32f10x::Pwm pwm(sjsu::stm32f10x::Pwm::Timer::kTimer1);
+  sjsu::stm32f10x::Pwm pwm(sjsu::stm32f10x::Pwm::Timer::kTimer4);
   pwm.Initialize();
-  pwm.ConfigureFrequency(1_kHz);
-  pwm.SetDutyCycle(0.2f);
+  pwm.ConfigureFrequency(20_kHz);
+  pwm.SetDutyCycle(0.75f);
   while(true);
   return 0;
 }
