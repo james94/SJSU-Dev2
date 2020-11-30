@@ -231,6 +231,13 @@ public:
 
     uint32_t arr;
 
+    // To select a prescalar and divider value, we use this equation:
+    //      (PSC+1)(ARR+1) = (EventTime)(ClkFreq)
+    // product is the value (EventTime)(ClkFreq)
+    //
+    // We want ARR to be a larger value for a more precise duty cycle
+    // so we increment prescalar until ARR in the value (PSC+1)(ARR+1)
+    // is less than 2^16
     do {
       prescalar++;
       arr = product / prescalar;
