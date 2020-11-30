@@ -133,12 +133,12 @@ public:
   {
     auto & system  = SystemController::GetPlatformController();
     auto kPeripheralFrequency = system.GetClockRate(timer_.id);
-    static constexpr uint16_t kMax16Bits = ~0;
 
-    const auto kNewFrequency = kPeripheralFrequency / frequency;
+    auto period = 1 / frequency;
+    uint32_t product = kPeripheralFrequency * period;
 
-    // To configure frequency, we have to set the ARR register
-    timer_.registers->ARR = kNewFrequency.to<uint16_t>() * kMax16Bits;
+    timer_.registers->PSC = GetPrescalarValue(product);
+    timer_.registers->ARR = product / (timer_.registers->PSC + 1);
 
     timer_.registers->EGR = bit::Set(timer_.registers->EGR, kUpdateGeneration);
 
@@ -153,7 +153,7 @@ public:
     // less than the value in TIMx->CCR1 and inactive for the opposite. So
     // setting TIMx->CCR to 80% of TIMx->ARR will result in the signal being
     // active only 20% of the time. This is why we do 1 - duty_cycle.
-    timer_.registers->CCR1 = static_cast<uint16_t>(1 - kClampedDutyCycle * timer_.registers->ARR);
+    timer_.registers->CCR1 = static_cast<uint16_t>((1 - kClampedDutyCycle) * timer_.registers->ARR);
   }
 
   float GetDutyCycle() override
@@ -222,6 +222,21 @@ public:
     default:
       break;
     }
+  }
+
+  uint16_t GetPrescalarValue(uint32_t product)
+  {
+    uint16_t prescalar = 0;
+    uint16_t kMax16Bits = ~0;
+
+    uint32_t arr;
+
+    do {
+      prescalar++;
+      arr = product / prescalar;
+    } while (arr > kMax16Bits);
+    
+    return prescalar - 1;
   }
 
   const Timer_t & timer_;
