@@ -66,56 +66,56 @@ public:
     inline static sjsu::stm32f10x::Pin pin_b_9 = sjsu::stm32f10x::Pin('B', 9);
 
     public:
-    inline static const Timer_t kTimer1 = {
+    inline static const Timer_t kTimer1 = {   // N
       .pin = pin_a_8,
       .timer = 1,
       .registers = TIM1,
       .id = SystemController::Peripherals::kTimer1
     };
 
-    inline static const Timer_t kTimer2 = {
+    inline static const Timer_t kTimer2 = {   // Y
       .pin = pin_a_0,
       .timer = 2,
       .registers = TIM2,
       .id = SystemController::Peripherals::kTimer2
     };
 
-    inline static const Timer_t kTimer3 = {
+    inline static const Timer_t kTimer3 = {   // Y
       .pin = pin_a_6,
       .timer = 3,
       .registers = TIM3,
       .id = SystemController::Peripherals::kTimer3
     };
 
-    inline static const Timer_t kTimer4 = {
+    inline static const Timer_t kTimer4 = {   // Y
       .pin = pin_b_6,
       .timer = 4,
       .registers = TIM4,
       .id = SystemController::Peripherals::kTimer4
     };
 
-    inline static const Timer_t kTimer9 = {
+    inline static const Timer_t kTimer9 = {   // N
       .pin = pin_a_2,
       .timer = 9,
       .registers = TIM9,
       .id = SystemController::Peripherals::kTimer9
     };
 
-    inline static const Timer_t kTimer10 = {
+    inline static const Timer_t kTimer10 = {  // N
       .pin = pin_b_8,
       .timer = 10,
       .registers = TIM10,
       .id = SystemController::Peripherals::kTimer10
     };
 
-    inline static const Timer_t kTimer11 = {
+    inline static const Timer_t kTimer11 = {  // N
       .pin = pin_b_9,
       .timer = 11,
       .registers = TIM11,
       .id = SystemController::Peripherals::kTimer11
     };
 
-    inline static const Timer_t kTimer14 = {
+    inline static const Timer_t kTimer14 = {  // N
       .pin = pin_a_7,
       .timer = 14,
       .registers = TIM14,
@@ -178,10 +178,6 @@ public:
     // Here we seet the PWM mode and the preload enable
     timer_.registers->CCMR1 = bit::Insert(timer_.registers->CCMR1, static_cast<uint16_t>(7), kOutputCompareMode);
     timer_.registers->CCMR1 = bit::Set(timer_.registers->CCMR1, kOutputComparePreloadEnable);
-
-    // This updates information in registers
-    // todo: make this better
-    timer_.registers->EGR = bit::Set(timer_.registers->EGR, kUpdateGeneration);
 
     // Enables the output channel (This driver only uses channel 1)
     timer_.registers->CCER = bit::Set(timer_.registers->CCER, kOutputChannelEnable);
