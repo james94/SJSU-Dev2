@@ -3,7 +3,9 @@
 
 int main()
 {
-  sjsu::stm32f10x::Pwm pwm(sjsu::stm32f10x::Pwm::Channel_t::kA8);
+  // sjsu::stm32f10x::Pwm pwm(sjsu::stm32f10x::Pwm::Channel_t::kA8);
+  auto & pwm           = sjsu::stm32f10x::GetPwm<1>::FromPin<'A', 8>();
+  auto & pwm2_channel2 = sjsu::stm32f10x::GetPwm<2>::Channel<2>();
 
   pwm.Initialize();
   pwm.Enable();

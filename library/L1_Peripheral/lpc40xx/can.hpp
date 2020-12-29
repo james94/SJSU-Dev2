@@ -290,37 +290,6 @@ class Can final : public sjsu::Can
     uint32_t data_b = 0;
   };
 
-  /// List of supported CANBUS channels
-  struct Channel  // NOLINT
-  {
-   private:
-    inline static auto port1_transmit_pin = Pin(0, 1);
-    inline static auto port1_read_pin     = Pin(0, 0);
-    inline static auto port2_transmit_pin = Pin(2, 8);
-    inline static auto port2_read_pin     = Pin(2, 7);
-
-   public:
-    /// Predefined definition for CAN1
-    inline static const Channel_t kCan1 = {
-      .td_pin           = port1_transmit_pin,
-      .td_function_code = 1,
-      .rd_pin           = port1_read_pin,
-      .rd_function_code = 1,
-      .registers        = lpc40xx::LPC_CAN1,
-      .id               = sjsu::lpc40xx::SystemController::Peripherals::kCan1,
-    };
-
-    /// Predefined definition for CAN2
-    inline static const Channel_t kCan2 = {
-      .td_pin           = port2_transmit_pin,
-      .td_function_code = 1,
-      .rd_pin           = port2_read_pin,
-      .rd_function_code = 1,
-      .registers        = lpc40xx::LPC_CAN2,
-      .id               = sjsu::lpc40xx::SystemController::Peripherals::kCan2,
-    };
-  };
-
   /// Pointer to the LPC CANBUS acceptance filter peripheral in memory
   inline static LPC_CANAF_TypeDef * can_acceptance_filter_register = LPC_CANAF;
 
@@ -650,5 +619,49 @@ class Can final : public sjsu::Can
   const Channel_t & channel_;
   ReceiveHandler handler_;
 };
+
+template <int port>
+Can & GetCan()
+{
+  if constexpr (port == 1)
+  {
+    static Pin port1_transmit_pin(0, 1);
+    static Pin port1_read_pin(0, 0);
+
+    static const Can::Channel_t kCanInfo = {
+      .td_pin           = port1_transmit_pin,
+      .td_function_code = 1,
+      .rd_pin           = port1_read_pin,
+      .rd_function_code = 1,
+      .registers        = lpc40xx::LPC_CAN1,
+      .id               = sjsu::lpc40xx::SystemController::Peripherals::kCan1,
+    };
+
+    static Can can1(kCanInfo);
+    return can1;
+  }
+  else if constexpr (port == 2)
+  {
+    static Pin port2_transmit_pin(2, 8);
+    static Pin port2_read_pin(2, 7);
+
+    static const Can::Channel_t kCanInfo = {
+      .td_pin           = port2_transmit_pin,
+      .td_function_code = 1,
+      .rd_pin           = port2_read_pin,
+      .rd_function_code = 1,
+      .registers        = lpc40xx::LPC_CAN2,
+      .id               = sjsu::lpc40xx::SystemController::Peripherals::kCan2,
+    };
+
+    static Can can2(kCanInfo);
+    return can2;
+  }
+  else
+  {
+    static_assert(InvalidOption<port>, "LPC40xx only supports CAN1 and CAN2!");
+    return GetCan<0>();
+  }
+}
 }  // namespace lpc40xx
 }  // namespace sjsu

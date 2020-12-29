@@ -4,6 +4,16 @@
 
 namespace sjsu
 {
+/// Used for defining static_asserts that should always fail, but only if the
+/// static_assert line is hit via `if constexpr` control block.
+template <auto... options>
+struct InvalidOption_t : std::false_type
+{
+};
+
+template <auto... options>
+inline constexpr bool InvalidOption = InvalidOption_t<options...>::value;
+
 /// Module is the basis interface for all other SJSU-Dev2 interfaces. It
 /// incorporates an API for initialization and setup as well as a state to know
 /// which stage the module is in.

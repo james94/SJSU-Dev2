@@ -12,10 +12,10 @@ int main()
 
   sjsu::LogInfo("Creating ADC object and selecting ADC channel 4 & 5");
   sjsu::LogInfo("ADC channel 4 is connected to pin P1.30");
-  sjsu::lpc40xx::Adc adc4(sjsu::lpc40xx::Adc::Channel::kChannel4);
+  auto & adc4 = sjsu::lpc40xx::GetAdc2<0>::Channel<4>();
 
   sjsu::LogInfo("ADC channel 5 is connected to pin P1.31");
-  sjsu::lpc40xx::Adc adc5(sjsu::lpc40xx::Adc::Channel::kChannel5);
+  auto & adc5 = sjsu::lpc40xx::GetAdc2<0>::FromPin<1, 31>();
 
   sjsu::LogInfo(
       "If you leave a channel disconnected, then the pin will be in a floating "

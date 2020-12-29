@@ -5,8 +5,11 @@
 
 int main(void)
 {
-  sjsu::lpc40xx::Can can1(sjsu::lpc40xx::Can::Channel::kCan1);
-  sjsu::lpc40xx::Can can2(sjsu::lpc40xx::Can::Channel::kCan2);
+  // sjsu::lpc40xx::Can can1(sjsu::lpc40xx::Can::Channel::kCan1);
+  // sjsu::lpc40xx::Can can2(sjsu::lpc40xx::Can::Channel::kCan2);
+
+  sjsu::lpc40xx::Can & can1 = sjsu::lpc40xx::GetCan<1>();
+  sjsu::lpc40xx::Can & can2 = sjsu::lpc40xx::GetCan<2>();
 
   sjsu::LogInfo("CAN application starting...");
   sjsu::LogInfo(

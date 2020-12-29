@@ -359,5 +359,12 @@ class Gpio final : public sjsu::Gpio
   uint8_t pin_;
   uint8_t interrupt_index_;
 };
+
+template<uint8_t port, uint8_t pin>
+auto & GetGpio()
+{
+  static Gpio gpio(port, pin);
+  return gpio;
+}
 }  // namespace lpc40xx
 }  // namespace sjsu

@@ -96,99 +96,6 @@ class Adc final : public sjsu::Adc
     uint8_t pin_function;
   };
 
-  /// Namespace containing predefined Channel_t description objects. These
-  /// objects can be passed directly to the constructor of an lpc40xx::Adc
-  /// object.
-  ///
-  /// Usage:
-  ///
-  /// ```
-  /// sjsu::lpc40xx::Adc adc(sjsu::lpc40xx::Adc::Channel::kChannel0);
-  /// ```
-  struct Channel  // NOLINT
-  {
-   private:
-    enum AdcMode : uint8_t
-    {
-      kCh0123Pins = 0b001,
-      kCh4567Pins = 0b011
-    };
-
-    inline static auto adc_pin_channel0 = Pin(0, 23);
-    inline static auto adc_pin_channel1 = Pin(0, 24);
-    inline static auto adc_pin_channel2 = Pin(0, 25);
-    inline static auto adc_pin_channel3 = Pin(0, 26);
-    inline static auto adc_pin_channel4 = Pin(1, 30);
-    inline static auto adc_pin_channel5 = Pin(1, 31);
-    inline static auto adc_pin_channel6 = Pin(0, 12);
-    inline static auto adc_pin_channel7 = Pin(0, 13);
-
-   public:
-    /// Predefined channel information for channel 0.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel0.
-    inline static const Channel_t kChannel0 = {
-      .adc_pin      = adc_pin_channel0,
-      .channel      = 0,
-      .pin_function = AdcMode::kCh0123Pins,
-    };
-
-    /// Predefined channel information for channel 1.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel1.
-    inline static const Channel_t kChannel1 = {
-      .adc_pin      = adc_pin_channel1,
-      .channel      = 1,
-      .pin_function = AdcMode::kCh0123Pins,
-    };
-
-    /// Predefined channel information for channel 2.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel2.
-    inline static const Channel_t kChannel2 = {
-      .adc_pin      = adc_pin_channel2,
-      .channel      = 2,
-      .pin_function = AdcMode::kCh0123Pins,
-    };
-
-    /// Predefined channel information for channel 3.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel3.
-    inline static const Channel_t kChannel3 = {
-      .adc_pin      = adc_pin_channel3,
-      .channel      = 3,
-      .pin_function = AdcMode::kCh0123Pins,
-    };
-
-    /// Predefined channel information for channel 4.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel4.
-    inline static const Channel_t kChannel4 = {
-      .adc_pin      = adc_pin_channel4,
-      .channel      = 4,
-      .pin_function = AdcMode::kCh4567Pins,
-    };
-
-    /// Predefined channel information for channel 5.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel5.
-    inline static const Channel_t kChannel5 = {
-      .adc_pin      = adc_pin_channel5,
-      .channel      = 5,
-      .pin_function = AdcMode::kCh4567Pins,
-    };
-
-    /// Predefined channel information for channel 6.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel6.
-    inline static const Channel_t kChannel6 = {
-      .adc_pin      = adc_pin_channel6,
-      .channel      = 6,
-      .pin_function = AdcMode::kCh4567Pins,
-    };
-
-    /// Predefined channel information for channel 7.
-    /// Pass this to the lpc17xx::Adc class to utilize adc channel7.
-    inline static const Channel_t kChannel7 = {
-      .adc_pin      = adc_pin_channel7,
-      .channel      = 7,
-      .pin_function = AdcMode::kCh4567Pins,
-    };
-  };
-
   /// The default and highest frequency that the ADC can operate at.
   static constexpr units::frequency::hertz_t kClockFrequency = 1_MHz;
 
@@ -271,6 +178,280 @@ class Adc final : public sjsu::Adc
  private:
   const Channel_t & channel_;
   const units::voltage::microvolt_t kReferenceVoltage;
+};
+
+template <int peripheral>
+struct GetAdc
+{
+  static_assert(peripheral == 0,
+                "LPC40xx only has 1 ADC peripheral block, thus peripheral can "
+                "only be the value 0.");
+
+  enum AdcMode : uint8_t
+  {
+    kCh0123Pins = 0b001,
+    kCh4567Pins = 0b011
+  };
+
+  template <int channel>
+  static auto & GetChannel()
+  {
+    static_assert(0 <= channel && channel <= 7,
+                  "LPC40xx only supports ADC channels from ADC0 to ADC7.");
+
+    if constexpr (channel == 0)
+    {
+      return adc0;
+    }
+    else if constexpr (channel == 1)
+    {
+      return adc1;
+    }
+    else if constexpr (channel == 2)
+    {
+      return adc2;
+    }
+    else if constexpr (channel == 3)
+    {
+      return adc3;
+    }
+    else if constexpr (channel == 4)
+    {
+      return adc4;
+    }
+    else if constexpr (channel == 5)
+    {
+      return adc5;
+    }
+    else if constexpr (channel == 6)
+    {
+      return adc6;
+    }
+    else if constexpr (channel == 7)
+    {
+      return adc7;
+    }
+    else
+    {
+      return GetInactive<Adc>();
+    }
+  }
+
+  template <int port, int pin>
+  static auto & GetChannelByPin()
+  {
+    if constexpr (port == 0 && pin == 23)
+    {
+      return adc0;
+    }
+    else if constexpr (port == 0 && pin == 24)
+    {
+      return adc1;
+    }
+    else if constexpr (port == 0 && pin == 25)
+    {
+      return adc2;
+    }
+    else if constexpr (port == 0 && pin == 26)
+    {
+      return adc3;
+    }
+    else if constexpr (port == 1 && pin == 30)
+    {
+      return adc4;
+    }
+    else if constexpr (port == 1 && pin == 31)
+    {
+      return adc5;
+    }
+    else if constexpr (port == 0 && pin == 12)
+    {
+      return adc6;
+    }
+    else if constexpr (port == 0 && pin == 13)
+    {
+      return adc7;
+    }
+    else
+    {
+      static_assert(InvalidOption<port, pin>::value,
+                    "LPC40xx only supports ADC pins P0[23], P0[24], P0[25], "
+                    "P0[26], P1[30], P1[31], P0[12], P0[13].");
+      return GetInactive<Adc>();
+    }
+  }
+
+ private:
+  inline static auto adc_pin_channel0 = Pin(0, 23);
+  /// Predefined channel information for channel 0.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel0.
+  inline static const Adc::Channel_t kChannel0 = {
+    .adc_pin      = adc_pin_channel0,
+    .channel      = 0,
+    .pin_function = AdcMode::kCh0123Pins,
+  };
+
+  inline static auto adc_pin_channel1 = Pin(0, 24);
+  /// Predefined channel information for channel 1.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel1.
+  inline static const Adc::Channel_t kChannel1 = {
+    .adc_pin      = adc_pin_channel1,
+    .channel      = 1,
+    .pin_function = AdcMode::kCh0123Pins,
+  };
+
+  inline static auto adc_pin_channel2 = Pin(0, 25);
+  /// Predefined channel information for channel 2.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel2.
+  inline static const Adc::Channel_t kChannel2 = {
+    .adc_pin      = adc_pin_channel2,
+    .channel      = 2,
+    .pin_function = AdcMode::kCh0123Pins,
+  };
+
+  inline static auto adc_pin_channel3 = Pin(0, 26);
+  /// Predefined channel information for channel 3.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel3.
+  inline static const Adc::Channel_t kChannel3 = {
+    .adc_pin      = adc_pin_channel3,
+    .channel      = 3,
+    .pin_function = AdcMode::kCh0123Pins,
+  };
+
+  inline static auto adc_pin_channel4 = Pin(1, 30);
+  /// Predefined channel information for channel 4.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel4.
+  inline static const Adc::Channel_t kChannel4 = {
+    .adc_pin      = adc_pin_channel4,
+    .channel      = 4,
+    .pin_function = AdcMode::kCh4567Pins,
+  };
+
+  inline static auto adc_pin_channel5 = Pin(1, 31);
+  /// Predefined channel information for channel 5.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel5.
+  inline static const Adc::Channel_t kChannel5 = {
+    .adc_pin      = adc_pin_channel5,
+    .channel      = 5,
+    .pin_function = AdcMode::kCh4567Pins,
+  };
+
+  inline static auto adc_pin_channel6 = Pin(0, 12);
+  /// Predefined channel information for channel 6.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel6.
+  inline static const Adc::Channel_t kChannel6 = {
+    .adc_pin      = adc_pin_channel6,
+    .channel      = 6,
+    .pin_function = AdcMode::kCh4567Pins,
+  };
+
+  inline static auto adc_pin_channel7 = Pin(0, 13);
+  /// Predefined channel information for channel 7.
+  /// Pass this to the lpc17xx::Adc class to utilize adc channel7.
+  inline static const Adc::Channel_t kChannel7 = {
+    .adc_pin      = adc_pin_channel7,
+    .channel      = 7,
+    .pin_function = AdcMode::kCh4567Pins,
+  };
+
+  inline static Adc adc0 = Adc(kChannel0);
+  inline static Adc adc1 = Adc(kChannel1);
+  inline static Adc adc2 = Adc(kChannel2);
+  inline static Adc adc3 = Adc(kChannel3);
+  inline static Adc adc4 = Adc(kChannel4);
+  inline static Adc adc5 = Adc(kChannel5);
+  inline static Adc adc6 = Adc(kChannel6);
+  inline static Adc adc7 = Adc(kChannel7);
+};
+template <int peripheral>
+struct GetAdc2
+{
+  static_assert(peripheral == 0,
+                "LPC40xx only has 1 ADC peripheral block, thus peripheral can "
+                "only be the value 0.");
+
+  template <int channel>
+  static Adc & Channel()
+  {
+    static_assert(0 <= channel && channel <= 7,
+                  "LPC40xx only supports ADC channels from ADC0 to ADC7.");
+
+    constexpr std::pair<int, int> kPinValues = GetPinBasedOnChannel<channel>();
+
+    static Pin adc_pin(kPinValues.first, kPinValues.second);
+    static const Adc::Channel_t kChannelInfo = {
+      .adc_pin      = adc_pin,
+      .channel      = channel,
+      .pin_function = GetPinFunctionCodeBasedOnChannel<channel>(),
+    };
+    static Adc adc_channel(kChannelInfo);
+
+    return adc_channel;
+  }
+
+  template <int port, int pin>
+  static Adc & FromPin()
+  {
+    static_assert(GetChannelBasedOnPin<port, pin>() != -1,
+                  "LPC40xx only supports ADC pins P0[23], P0[24], P0[25], "
+                  "P0[26], P1[30], P1[31], P0[12], P0[13].");
+    return GetChannel<GetChannelBasedOnPin<port, pin>()>();
+  }
+
+ private:
+  enum AdcMode : uint8_t
+  {
+    kCh0123Pins = 0b001,
+    kCh4567Pins = 0b011
+  };
+
+  constexpr static auto GetPinMap()
+  {
+    std::array<std::pair<int, int>, 8> pins = {
+      std::make_pair(0, 23),  // channel0
+      std::make_pair(0, 24),  // channel1
+      std::make_pair(0, 25),  // channel2
+      std::make_pair(0, 26),  // channel3
+      std::make_pair(1, 30),  // channel4
+      std::make_pair(1, 31),  // channel5
+      std::make_pair(0, 12),  // channel6
+      std::make_pair(0, 13),  // channel7
+    };
+
+    return pins;
+  }
+
+  template <int channel>
+  constexpr static auto & GetPinBasedOnChannel()
+  {
+    return GetPinMap()[channel];
+  }
+
+  template <int port, int pin>
+  constexpr static int GetChannelBasedOnPin()
+  {
+    for (size_t i = 0; i < GetPinMap().size(); i++)
+    {
+      if (port == GetPinMap()[i].first && pin == GetPinMap()[i].second)
+      {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  template <int channel>
+  constexpr static auto GetPinFunctionCodeBasedOnChannel()
+  {
+    if constexpr (0 <= channel && channel <= 3)
+    {
+      return AdcMode::kCh0123Pins;
+    }
+    else
+    {
+      return AdcMode::kCh4567Pins;
+    }
+  }
 };
 }  // namespace lpc40xx
 }  // namespace sjsu
