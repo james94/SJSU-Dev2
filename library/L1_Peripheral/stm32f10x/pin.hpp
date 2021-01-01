@@ -47,13 +47,23 @@ class Pin final : public sjsu::Pin
   /// @param pin - must be between 0 to 15
   constexpr Pin(uint8_t port, uint8_t pin) : sjsu::Pin(port, pin) {}
 
+  /// Will not change the function of the pin but does change the
+  /// pin to its alternative function mode, meaning it will no longer respond or
+  /// operate based on the GPIO registers. Muxing pins to the correct function
+  /// must be done by the individual driver as the STM32F10x alternative
+  /// function registers do not follow any sort of consistent pattern.
+  ///
+  /// Set settings.function to 0 for gpio mode and set to 1 for alternative
+  /// mode.
+  /// If settings.as_analog is set to true, all other fields are ignored and the
+  /// pin is put into analog mode.
   void ModuleInitialize() override
   {
-    bool port_is_valid = ('A' <= port_ && port_ <= 'I');
-    if (!port_is_valid)
+    if (settings.function > 0b1)
     {
       throw Exception(std::errc::invalid_argument,
-                      "Port must be between 'A' and 'I'");
+                      "Only functions 0 (meaning GPIO) or 1 (meaning "
+                      "alternative function) are allowed!");
     }
 
     auto & system = SystemController::GetPlatformController();
@@ -61,7 +71,7 @@ class Pin final : public sjsu::Pin
     // Enable the usage of alternative pin configurations
     system.PowerUpPeripheral(stm32f10x::SystemController::Peripherals::kAFIO);
 
-    switch (port_)
+    switch (GetPort())
     {
       case 'A':
         system.PowerUpPeripheral(
@@ -92,34 +102,33 @@ class Pin final : public sjsu::Pin
             stm32f10x::SystemController::Peripherals::kGpioG);
         break;
     }
+
+    if (settings.as_analog)
+    {
+      ConfigureAsAnalogMode();
+    }
+    else if (settings.function == 1)
+    {
+      // The order of execution here is very important
+      ConfigureForAlternativeFunction();
+    }
+    else
+    {
+      ConfigurePullResistor();
+    }
+
+    ConfigureAsOpenDrain();
   }
 
-  /// Does nothing
-  void ModuleEnable(bool = true) override {}
-
-  /// Will not change the function of the pin but does change the
-  /// pin to its alternative function mode, meaning it will no longer respond or
-  /// operate based on the GPIO registers. Muxing pins to the correct function
-  /// must be done by the individual driver as the STM32F10x alternative
-  /// function registers do not follow any sort of consistent pattern.
-  ///
-  /// @param alternative_function - set to 0 for gpio mode and set to 1 for
-  ///        alternative mode.
-  void ConfigureFunction(uint8_t alternative_function) override
+ private:
+  void ConfigureForAlternativeFunction()
   {
     static constexpr auto kMode = bit::MaskFromRange(0, 1);
     static constexpr auto kCFN1 = bit::MaskFromRange(3);
 
-    Initialize();
-
-    if (alternative_function > 0b1)
-    {
-      throw Exception(std::errc::invalid_argument, "Invalid function.");
-    }
-
     uint32_t config = 0;
     // Set the alternative bit flag
-    config = bit::Insert(config, alternative_function, kCFN1);
+    config = bit::Insert(config, 1, kCFN1);
     // Set output speed to 50 MHz RM008 page 161 Table 21.
     config = bit::Insert(config, 0b11, kMode);
 
@@ -128,51 +137,42 @@ class Pin final : public sjsu::Pin
 
   /// Should only be used for inputs. This method will change the pin's mode
   /// form out to input.
-  void ConfigurePullResistor(Resistor resistor) override
+  void ConfigurePullResistor()
   {
-    bool pull_up   = true;
-    uint8_t config = 0;
+    bool pull_up    = true;
+    uint32_t config = 0;
 
     // Configuration for analog input mode. See Table 20 on page 161 on RM0008
-    switch (resistor)
+    switch (settings.resistor)
     {
-      case Resistor::kNone: config = 0b0100; break;
-      case Resistor::kPullDown: pull_up = false; [[fallthrough]];
-      case Resistor::kPullUp: config = 0b1000; break;
-      case Resistor::kRepeater:
-      {
-        throw Exception(std::errc::not_supported, "Repeater not supported");
-      }
+      case PinSettings_t::Resistor::kNone: config = 0b0100; break;
+      case PinSettings_t::Resistor::kPullDown: pull_up = false; [[fallthrough]];
+      case PinSettings_t::Resistor::kPullUp: config = 0b1000; break;
     }
 
     SetConfig(config);
-    Port()->ODR = bit::Insert(Port()->ODR, pull_up, pin_);
+    Port()->ODR = bit::Insert(Port()->ODR, pull_up, GetPin());
   }
 
   /// This function MUST NOT be called for pins set as inputs.
-  void ConfigureAsOpenDrain(bool set_as_open_drain = true) override
+  void ConfigureAsOpenDrain()
   {
     static constexpr auto kCFN0 = bit::MaskFromRange(2);
-
-    uint32_t config = GetConfig();
-
-    config = bit::Insert(config, set_as_open_drain, kCFN0);
-
+    uint32_t config = bit::Insert(GetConfig(), settings.open_drain, kCFN0);
     SetConfig(config);
   }
 
   /// This function can only be used to set the pin as analog.
-  void ConfigureAsAnalogMode(bool = true) override
+  void ConfigureAsAnalogMode()
   {
     // Configuration for analog input mode. See Table 20 on page 161 on RM0008
     SetConfig(0b0100);
   }
 
- private:
   /// Returns the a pointer the gpio port.
   GPIO_TypeDef * Port() const
   {
-    return gpio[port_ - 'A'];
+    return gpio[GetPort() - 'A'];
   }
 
   /// Returns a bit mask indicating where the config bits are in the config
@@ -180,7 +180,7 @@ class Pin final : public sjsu::Pin
   bit::Mask Mask() const
   {
     return {
-      .position = static_cast<uint32_t>((pin_ * 4) % 32),
+      .position = static_cast<uint32_t>((GetPin() * 4) % 32),
       .width    = 4,
     };
   }
@@ -191,7 +191,7 @@ class Pin final : public sjsu::Pin
   {
     volatile uint32_t * config = &Port()->CRL;
 
-    if (pin_ > 7)
+    if (GetPin() > 7)
     {
       config = &Port()->CRH;
     }
@@ -213,4 +213,19 @@ class Pin final : public sjsu::Pin
 
   friend class Gpio;
 };
+
+template <int port, int pin_number>
+inline Pin & GetPin()
+{
+  static_assert(
+      ('A' <= port && port <= 'I') && (0 <= pin_number && pin_number <= 15),
+      "\n\n"
+      "SJSU-Dev2 Compile Time Error:\n"
+      "    stm32f10x: Port must be between 'A' and 'I' and pin must be\n"
+      "    between 0 and 15!\n"
+      "\n");
+
+  static Pin pin(port, pin_number);
+  return pin;
+}
 }  // namespace sjsu::stm32f10x

@@ -16,15 +16,18 @@
 
 namespace sjsu
 {
-class RmdX : public sjsu::Module
+class RmdX : public sjsu::Module<>
 {
  public:
+  /// Defines the set of encoder bit resolutions available for the RMD-X line of
+  /// smart servos.
   enum class EncoderBitWidth
   {
     k14,
     k16,
   };
 
+  /// Defines the set of all commands that can be issued to a RMD-X motor.
   enum class Commands : uint8_t
   {
     kReadPIDData                                 = 0x30,
@@ -68,17 +71,31 @@ class RmdX : public sjsu::Module
     units::angular_velocity::revolutions_per_minute_t maximum_speed;
   };
 
+  /// Structure containing all of the forms of feedback acquired by an RMD-X
+  /// motor
   struct Feedback_t
   {
+    /// Core temperature of the motor
     units::temperature::celsius_t temperature;
+    /// Current flowing through the motor windings
     units::current::ampere_t current;
+    /// Rotational velocity in RMP of the motor
     units::angular_velocity::revolutions_per_minute_t speed;
+    /// Motor's supply voltage
     units::voltage::volt_t volts;
+    /// Signed 16-bit raw encoder count value of the motor
     int16_t encoder_position;
+    /// Error code indicating an over voltage protection event on from the motor
+    /// winding output.
     bool over_voltage_protection_tripped;
+    /// Error code indicating an over temperature protection event on from the
+    /// motor winding output.
     bool over_temperature_protection_tripped;
+    /// When true, indicates that an attempt to read the feedback from the motor
+    /// failed.
     bool missed_feedback = true;
 
+    /// Print out motor feedback information
     void Print()
     {
       LogInfo("Error Flags:");
@@ -96,6 +113,7 @@ class RmdX : public sjsu::Module
     }
   };
 
+  /// The default factory configuration for the RMD-X motors.
   static constexpr Parameters_t kDefaultParameters = {
     .can_baudrate  = 1_MHz,
     .gear_ratio    = 6.0f,
@@ -123,43 +141,27 @@ class RmdX : public sjsu::Module
 
   void ModuleInitialize() override
   {
-    if (network_.CanBus().RequiresConfiguration())
-    {
-      network_.CanBus().Initialize();
-      network_.CanBus().ConfigureBaudRate(params_.can_baudrate);
-      network_.CanBus().Enable();
-    }
-    if (network_.RequiresConfiguration())
-    {
-      network_.Initialize();
-      network_.Enable();
-    }
+    network_.CanBus().settings.baud_rate = params_.can_baudrate;
+    network_.CanBus().Initialize();
+    network_.Initialize();
     node_ = network_.CaptureMessage(device_id_);
+
+    network_.CanBus().Send(device_id_,
+                           { Value(Commands::kMotorOffCommand),
+                             0x00,
+                             0x00,
+                             0x00,
+                             0x00,
+                             0x00,
+                             0x00,
+                             0x00 });
   }
 
-  /// Disabling the motor will assert the MOTOR OFF command which will clear all
-  /// status flags and command directives and stopping control of the motor. In
-  /// a sense the motor will go limp and will not drive the output shaft.
-  void ModuleEnable(bool enable = true) override
-  {
-    if (enable)
-    {
-      // Nothing needed to enable the motor
-    }
-    else
-    {
-      network_.CanBus().Send(device_id_,
-                             { Value(Commands::kMotorOffCommand),
-                               0x00,
-                               0x00,
-                               0x00,
-                               0x00,
-                               0x00,
-                               0x00,
-                               0x00 });
-    }
-  }
-
+  /// Set the rotational speed of the motor.
+  ///
+  /// @param rpm - desired RPM to move motor. Can be negative to change rotation
+  ///        direction.
+  /// @return RmdX& - reference to self to allow method chaining
   RmdX & SetSpeed(units::angular_velocity::revolutions_per_minute_t rpm)
   {
     int32_t command_speed = ConvertRPMToCommandSpeed(rpm);
@@ -179,6 +181,11 @@ class RmdX : public sjsu::Module
     return *this;
   }
 
+  /// Set the angle of the motor's output shaft.
+  ///
+  /// @param angle - angle to move motor output shaft to.
+  /// @param rpm - Can only be a positive value.
+  /// @return RmdX& - reference to self to allow method chaining
   RmdX & SetAngle(
       units::angle::degree_t angle,
       units::angular_velocity::revolutions_per_minute_t rpm = 10_rpm)
@@ -204,6 +211,10 @@ class RmdX : public sjsu::Module
     return *this;
   }
 
+  /// Request error status and operating information from the motor.
+  ///
+  /// @param timeout - Amount of time to wait for feedback from the motor.
+  /// @return RmdX& - reference to self to allow method chaining
   RmdX & RequestFeedbackFromMotor(std::chrono::nanoseconds timeout = 2ms)
   {
     TimeoutTimer timeout_timer(timeout);
@@ -242,7 +253,8 @@ class RmdX : public sjsu::Module
     return *this;
   }
 
-  auto GetFeedback() const
+  /// @return Feedback_t - copy of the motor feedback.
+  Feedback_t GetFeedback() const
   {
     return feedback_;
   }

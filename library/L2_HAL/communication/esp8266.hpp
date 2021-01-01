@@ -28,7 +28,7 @@ namespace sjsu
 /// InternetSocket interfaces.
 /// Can be used to connect to a WiFi host device.
 /// Can be used to communicate over the internet using this driver.
-class Esp8266 : public Module
+class Esp8266 : public Module<>
 {
  public:
   /// Default baud rate for ESP8266
@@ -48,11 +48,6 @@ class Esp8266 : public Module
     void ModuleInitialize() override
     {
       esp_.Initialize();
-    }
-
-    void ModuleEnable(bool enable = true) override
-    {
-      esp_.Enable(enable);
     }
 
     bool Connect(Protocol protocol,
@@ -92,11 +87,6 @@ class Esp8266 : public Module
     void ModuleInitialize() override
     {
       esp_.Initialize();
-    }
-
-    void ModuleEnable(bool enable = true) override
-    {
-      esp_.Enable(enable);
     }
 
     bool ConnectToAccessPoint(std::string_view ssid,
@@ -154,56 +144,40 @@ class Esp8266 : public Module
 
   void ModuleInitialize() override
   {
+    // Set baudrate with all other UART settings set to default
+    uart_port_.settings = UartSettings_t{ .baud_rate = kBaudRate };
     uart_port_.Initialize();
+    uart_port_.Flush();
 
-    if (uart_port_.RequiresConfiguration())
+    try
     {
-      uart_port_.ConfigureFormat();
-      uart_port_.ConfigureBaudRate(kBaudRate);
-      uart_port_.Enable();
+      LogDebug("Reseting module...");
+      WifiWrite("+++");
+      Reset();
+
+      // Disable echo
+      LogDebug("Disabling echo back...");
+      WifiWrite("ATE0\r\n");
+      ReadUntil(kOk, kDefaultTimeout, true);
+
+      // Enable simple IP client mode
+      LogDebug("Set device to simple IP client mode...");
+      WifiWrite("AT+CWMODE=1\r\n");
+      ReadUntil(kOk, kDefaultTimeout, true);
+
+      LogDebug("Testing that module is ready...");
+      TestModule();
     }
-  }
-
-  void ModuleEnable(bool enable = true) override
-  {
-    if (enable)
+    catch (sjsu::Exception & e)
     {
-      uart_port_.Flush();
-
-      try
+      if (e.GetCode() == std::errc::timed_out)
       {
-        LogDebug("Reseting module...");
-        WifiWrite("+++");
-        Reset();
-
-        // Disable echo
-        LogDebug("Disabling echo back...");
-        WifiWrite("ATE0\r\n");
-        ReadUntil(kOk, kDefaultTimeout, true);
-
-        // Enable simple IP client mode
-        LogDebug("Set device to simple IP client mode...");
-        WifiWrite("AT+CWMODE=1\r\n");
-        ReadUntil(kOk, kDefaultTimeout, true);
-
-        LogDebug("Testing that module is ready...");
-        TestModule();
+        throw sjsu::Exception(
+            std::errc::no_such_device,
+            "Enabling ESP8266 driver failed! The baud rate could be "
+            "incorrect. The device may not be connected, or connected "
+            "properly, or is not responding to input (possibly broken).");
       }
-      catch (sjsu::Exception & e)
-      {
-        if (e.GetCode() == std::errc::timed_out)
-        {
-          throw sjsu::Exception(
-              std::errc::no_such_device,
-              "Enabling ESP8266 driver failed! The baud rate could be "
-              "incorrect. The device may not be connected, or connected "
-              "properly, or is not responding to input (possibly broken).");
-        }
-      }
-    }
-    else
-    {
-      LogDebug("ESP8266 driver cannot be disabled once enabled");
     }
   }
 
@@ -336,6 +310,8 @@ class Esp8266 : public Module
   // ===========================================================================
   // InternetProtocol
   // ===========================================================================
+
+  /// See `sjsu::InternetProtocol` for details
   bool Connect(InternetSocket::Protocol protocol,
                std::string_view address,
                uint16_t port,
@@ -388,12 +364,14 @@ class Esp8266 : public Module
     ReadUntil(kOk, kDefaultLongTimeout, true);
   }
 
-  /// TODO(kammce): Fix this!!
+  // TODO(kammce): Fix this!!
+  /// See `sjsu::InternetProtocol` for details
   bool IsConnected()
   {
     return false;
   }
 
+  /// See `sjsu::InternetProtocol` for details
   void Write(std::span<const uint8_t> data, std::chrono::nanoseconds timeout)
   {
     TimeoutTimer timer(timeout);
@@ -427,6 +405,7 @@ class Esp8266 : public Module
     }
   }
 
+  /// See `sjsu::InternetProtocol` for details
   size_t Read(std::span<uint8_t> data, std::chrono::nanoseconds timeout)
   {
     TimeoutTimer timer(timeout);
@@ -442,6 +421,7 @@ class Esp8266 : public Module
     return uart_port_.Read(data_subspan, timer.GetTimeLeft());
   }
 
+  /// See `sjsu::InternetProtocol` for details
   void Close()
   {
     WifiWrite("AT+CIPCLOSE\r\n");

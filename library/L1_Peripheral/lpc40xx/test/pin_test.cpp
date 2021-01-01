@@ -68,8 +68,6 @@ TEST_CASE("Testing lpc40xx Pin")
         static_cast<uint8_t>(sjsu::Pin::Resistor::kPullDown) << kModePosition;
     constexpr uint32_t kExpectedForPullUp =
         static_cast<uint8_t>(sjsu::Pin::Resistor::kPullUp) << kModePosition;
-    constexpr uint32_t kExpectedForRepeater =
-        static_cast<uint8_t>(sjsu::Pin::Resistor::kRepeater) << kModePosition;
 
     // Exercise - Set as floating
     test_subject00.ConfigureFloating();

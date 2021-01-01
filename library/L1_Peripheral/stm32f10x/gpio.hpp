@@ -25,30 +25,36 @@ class Gpio : public sjsu::Gpio
 
   /// @param port - must be a capitol letter from 'A' to 'G'
   /// @param pin - must be between 0 to 15
-  constexpr Gpio(uint8_t port, uint8_t pin) : pin_{ port, pin } {}
+  Gpio(uint8_t port, uint8_t pin) : pin_{ port, pin } {}
 
   void ModuleInitialize() override
   {
     pin_.Initialize();
   }
 
-  /// Does nothing
-  void ModuleEnable(bool = true) override {}
-
   void SetDirection(Direction direction) override
   {
     if (direction == Direction::kInput)
     {
-      // Using the `ConfigureFloating()` method here will do the work of setting
-      // the pin to an input as well as setting the pin to the its reset state
-      // as defined within the RM0008 user manual for the STM32F10x.
-      pin_.ConfigureFloating();
+      // Check that the resistor is equal to pull-down and if so, set it to
+      // floating. If the resistor for stm32f10x pins are set to anything else
+      // than pull-down, then the pin will become an input, so setting it to
+      // floating is a means to convert a pin to input for stm31f10x.
+      //
+      // See RM0008 user manual for the STM32F10x for details.
+      if (pin_.settings.resistor == PinSettings_t::Resistor::kPullDown)
+      {
+        pin_.settings.Floating();
+      }
     }
     else
     {
-      // Setting pin function to 0 converts pin to an output GPIO pin.
-      pin_.ConfigureFunction(0);
+      // Setting pin to pull down with function 0 will convert the pin to a
+      // output pin.
+      pin_.settings.PullDown();
+      pin_.settings.function = 0;
     }
+    pin_.Initialize();
   }
 
   void Set(State output) override
@@ -226,4 +232,19 @@ class Gpio : public sjsu::Gpio
  private:
   sjsu::stm32f10x::Pin pin_;
 };
+
+template <int port, int pin_number>
+inline Gpio & GetGpio()
+{
+  static_assert(
+      ('A' <= port && port <= 'I') && (0 <= pin_number && pin_number <= 15),
+      "\n\n"
+      "SJSU-Dev2 Compile Time Error:\n"
+      "    stm32f10x: Port must be between 'A' and 'I' and pin must be\n"
+      "    between 0 and 15!\n"
+      "\n");
+
+  static Gpio gpio(port, pin_number);
+  return gpio;
+}
 }  // namespace sjsu::stm32f10x

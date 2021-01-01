@@ -19,9 +19,27 @@
 
 namespace sjsu
 {
+/// Forward delcare Can peripheral
+class Can;
+
+/// Settings for CAN peripherals
+struct CanSettings_t
+{
+  using ReceiveHandler = std::function<void(sjsu::Can &)>;
+
+  /// Standard baud rate for most CANBUS networks
+  static constexpr auto kStandardBaudRate = 100_kHz;
+
+  /// baud rate for most CANBUS networks
+  units::frequency::hertz_t baud_rate = kStandardBaudRate;
+
+  /// When a message is received this handler is executed.
+  ReceiveHandler handler = nullptr;
+};
+
 /// The common interface for the CANBUS peripherals.
 /// @ingroup l1_peripheral
-class Can : public Module
+class Can : public Module<CanSettings_t>
 {
  public:
   // ===========================================================================
@@ -70,61 +88,6 @@ class Can : public Module
     }
   };
 
-  using ReceiveHandler = std::function<void(sjsu::Can &)>;
-
-  inline static ReceiveHandler kDisableHandler = nullptr;
-
-  /// Standard baud rate for most CANBUS networks
-  static constexpr units::frequency::hertz_t kStandardBaudRate = 100'000_Hz;
-
-  // ===========================================================================
-  // Interface Methods
-  // ===========================================================================
-
-  // ---------------------------------------------------------------------------
-  // Configuration Methods
-  // ---------------------------------------------------------------------------
-
-  /// @param baud - the baud rate to set the CANBUS communication frequency to.
-  virtual void ConfigureBaudRate(
-      units::frequency::hertz_t baud = kStandardBaudRate) = 0;
-
-  /// Filter out CANBUS messages based on their ID. Without such a filter, every
-  /// single message on the CANBUS will be received, even those not intended or
-  /// useful for this target device. Without a filter, software will need to
-  /// perform the work to throw away CAN messages that are irrelevant. This
-  /// method will utilize the CAN peripheral hardware to perform message
-  /// filtering.
-  ///
-  /// NOTE: ConfigureAcceptanceFilter(true) must be called for the filter to be
-  /// taken into effect.
-  ///
-  /// @param id - the ID to accept
-  /// @return true - if the filter was able to be installed successfully
-  /// @return false - if the filter was NOT able to be installed successfully.
-  ///         This typically occurres when the number of hardware filters runs
-  ///         out or if the CAN driver or peripheral does not support filtering.
-  virtual bool ConfigureFilter(uint32_t id) = 0;
-
-  /// Enables and disables the acceptance filter. When disabled all messages
-  /// will be received by the CAN peripheral. When enabled, only the messages
-  /// with the correct ID set by ConfigureFilter() will be allowed.
-  ///
-  /// @param enable - set to true to enable enable filter, false to disable.
-  /// @return true - if the new state was accepted. False otherwise.
-  virtual bool ConfigureAcceptanceFilter(bool enable) = 0;
-
-  /// Enable interrupts for receiving CAN messages and set the handler to the
-  /// one provided here.
-  ///
-  /// @param handler - Action to be taken when a new can message arrives. Set to
-  /// nullptr in order to disable this interrupt.
-  virtual void ConfigureReceiveHandler(ReceiveHandler handler) = 0;
-
-  // ---------------------------------------------------------------------------
-  // Usage Methods
-  // ---------------------------------------------------------------------------
-
   /// Send a message via CANBUS to the designated device with the supplied ID
   ///
   /// @param message - Message containing the CANBUS contents.
@@ -153,7 +116,7 @@ class Can : public Module
   virtual bool IsBusOff() = 0;
 
   // ===========================================================================
-  // Utility Methods
+  // Helper Functions
   // ===========================================================================
 
   /// Send a message via CANBUS to the designated device with the supplied ID
@@ -197,21 +160,6 @@ inline sjsu::Can & GetInactive<sjsu::Can>()
   {
    public:
     void ModuleInitialize() override {}
-    void ModuleEnable(bool = true) override {}
-
-    void ConfigureBaudRate(
-        units::frequency::hertz_t = kStandardBaudRate) override
-    {
-    }
-    bool ConfigureFilter(uint32_t) override
-    {
-      return true;
-    }
-    bool ConfigureAcceptanceFilter(bool) override
-    {
-      return true;
-    }
-    void ConfigureReceiveHandler(ReceiveHandler) override {}
     void Send(const Message_t &) override {}
     Message_t Receive() override
     {
@@ -236,7 +184,7 @@ inline sjsu::Can & GetInactive<sjsu::Can>()
 }
 
 /// CanNetwork is a canbus message receiver handler and
-class CanNetwork : public sjsu::Module
+class CanNetwork : public sjsu::Module<>
 {
  public:
   /// The node stored in the CanNetwork map. Holds the latest CAN message and
@@ -342,22 +290,8 @@ class CanNetwork : public sjsu::Module
 
   void ModuleInitialize() override
   {
-    // Do nothing...
-  }
-
-  void ModuleEnable(bool enable = true) override
-  {
-    if (enable)
-    {
-      auto receive_handler_lambda = [this](sjsu::Can & can) {
-        ReceiveHandler(can);
-      };
-      can_.ConfigureReceiveHandler(receive_handler_lambda);
-    }
-    else
-    {
-      can_.ConfigureReceiveHandler(nullptr);
-    }
+    can_.settings.handler = [this](sjsu::Can & can) { ReceiveHandler(can); };
+    can_.Initialize();
   }
 
   /// In order for a CAN message with an associated ID to be stored in the
@@ -365,9 +299,11 @@ class CanNetwork : public sjsu::Module
   /// expect to get the following IDs 0x140, 0x7AA, and 0x561 from the CAN bus,
   /// then this method must be called as such:
   ///
+  /// ```
   ///    Node_t * motor_node       = can_network.CaptureMessage(0x140);
   ///    Node_t * encoder_node     = can_network.CaptureMessage(0x561);
   ///    Node_t * temperature_node = can_network.CaptureMessage(0x7AA);
+  /// ```
   ///
   /// @param id - Associated ID of messages to be stored.
   /// @throw std::bad_alloc if this static storage allocated for this object is
@@ -424,11 +360,6 @@ class CanNetwork : public sjsu::Module
   const auto & GetInternalMap()
   {
     return messages_;
-  }
-
-  ~CanNetwork()
-  {
-    ModuleEnable(false);
   }
 
  private:

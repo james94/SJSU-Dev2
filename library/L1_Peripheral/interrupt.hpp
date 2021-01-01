@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "L1_Peripheral/inactive.hpp"
+#include "module.hpp"
 
 namespace sjsu
 {
@@ -23,7 +24,7 @@ inline static InterruptCallback do_nothing = []() {};
 /// each.
 ///
 /// @ingroup l1_peripheral
-class InterruptController
+class InterruptController : Module<>
 {
  private:
   /// Global platform interrupt controller scoped within this class. Most
@@ -65,19 +66,10 @@ class InterruptController
     return *platform_interrupt_controller;
   }
 
-  /// Initialize interrupt vector table.
-  ///
-  /// @note This MUST NOT be called by application code. This for use only in
-  /// the platform's startup. Doing this typically overwrites the interrupt
-  /// handlers with the unregistered_handler.
-  virtual void Initialize(InterruptHandler unregistered_handler = nullptr) = 0;
-
   /// Configures and enables the interrupt on the platform and also registers
   /// the interrupt handler.
   ///
-  /// @param register_info - the needed information to setup the interrupt, such
-  ///        as its vector number, priority, if it should be enabled with this
-  ///        call, etc. See RegistrationInfo_t documentation for more details.
+  /// @param register_info - the needed information to setup the interrupt.
   virtual void Enable(RegistrationInfo_t register_info) = 0;
 
   /// Disables and interrupt based on its interrupt request number
@@ -109,7 +101,7 @@ inline sjsu::InterruptController & GetInactive<sjsu::InterruptController>()
   class InactiveInterruptController : public sjsu::InterruptController
   {
    public:
-    void Initialize(InterruptHandler) override {}
+    void ModuleInitialize() override {}
     void Enable(RegistrationInfo_t) override {}
     void Disable(int) override {}
   };

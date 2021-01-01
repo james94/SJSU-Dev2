@@ -147,100 +147,123 @@ int HostTestRead(std::span<char> payload);
     CHECK(e.GetCode() == error_code);                                      \
   }
 
+/// Default specialization of the Reflection class. If this class is used, it
+/// means that a specialization for the type does not exists. The data retrieved
+/// from this class typically indicates that the type is unknown.
 template <typename T>
 class Reflection
 {
  public:
+  /// The default name for types that cannot be found as a specialization of the
+  /// Reflection class
   static constexpr const char * Name()
   {
     return "?";
   }
 };
 
+/// Gives information about the type `uint8_t`
 template <>
 class Reflection<uint8_t>
 {
  public:
+  /// Name of the type "uint8_t"
   static constexpr const char * Name()
   {
     return "uint8_t";
   }
 };
 
+/// Gives information about the type `uint8_t`
 template <>
 class Reflection<const uint8_t>
 {
  public:
+  /// Name of the type "const"
   static constexpr const char * Name()
   {
     return "const uint8_t";
   }
 };
 
+/// Gives information about the type `uint16_t`
 template <>
 class Reflection<uint16_t>
 {
  public:
+  /// Name of the type "uint16_t"
   static constexpr const char * Name()
   {
     return "uint16_t";
   }
 };
 
+/// Gives information about the type `uint32_t`
 template <>
 class Reflection<uint32_t>
 {
  public:
+  /// Name of the type "uint32_t"
   static constexpr const char * Name()
   {
     return "uint32_t";
   }
 };
 
+/// Gives information about the type `uint64_t`
 template <>
 class Reflection<uint64_t>
 {
  public:
+  /// Name of the type "uint64_t"
   static constexpr const char * Name()
   {
     return "uint64_t";
   }
 };
 
+/// Gives information about the type `int8_t`
 template <>
 class Reflection<int8_t>
 {
  public:
+  /// Name of the type "int8_t"
   static constexpr const char * Name()
   {
     return "int8_t";
   }
 };
 
+/// Gives information about the type `int16_t`
 template <>
 class Reflection<int16_t>
 {
  public:
+  /// Name of the type "int16_t"
   static constexpr const char * Name()
   {
     return "int16_t";
   }
 };
 
+/// Gives information about the type `int32_t`
 template <>
 class Reflection<int32_t>
 {
  public:
+  /// Name of the type "int32_t"
   static constexpr const char * Name()
   {
     return "int32_t";
   }
 };
 
+/// Gives information about the type `int64_t`
 template <>
 class Reflection<int64_t>
 {
  public:
+  /// Name of the type "int64_t"
   static constexpr const char * Name()
   {
     return "int64_t";
@@ -249,6 +272,7 @@ class Reflection<int64_t>
 
 namespace doctest
 {
+/// Allows doctest to display a std::span<T>
 template <typename T, size_t N>
 struct StringMaker<std::array<T, N>>  // NOLINT
 {
@@ -277,6 +301,7 @@ struct StringMaker<std::array<T, N>>  // NOLINT
   }
 };
 
+/// Allows doctest to display a std::span<T>
 template <typename T>
 struct StringMaker<std::span<T>>
 {

@@ -4,8 +4,8 @@
 #pragma once
 
 #include <array>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 
@@ -630,6 +630,14 @@ class Value
   constexpr operator T() const
   {
     return value_;
+  }
+
+  /// Allows implicit conversion from this type into the integer type.
+  /// @return T - the type of this value
+  template <typename Int>
+  constexpr Int To() const
+  {
+    return static_cast<Int>(value_);
   }
 
  private:
